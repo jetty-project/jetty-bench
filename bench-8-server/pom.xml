@@ -7,10 +7,10 @@
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.eclipse.jetty.benchmark</groupId>
-  <artifactId>jetty-9-server</artifactId>
-  <name>Example :: Jetty 9 Benchmark Server</name>
+  <artifactId>bench-8-server</artifactId>
+  <name>Example :: Jetty 8 Benchmark Server</name>
   <properties>
-    <jetty.version>9.0.0-SNAPSHOT</jetty.version>
+    <jetty.version>8.1.8.v20121106</jetty.version>
   </properties>
   <dependencies>
     <dependency>

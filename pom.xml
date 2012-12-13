@@ -10,6 +10,19 @@
   <version>1.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Jetty Benchmark</name>
+  <build>
+    <defaultGoal>install</defaultGoal>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.7</source>
+          <target>1.7</target>
+          <verbose>false</verbose>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
   <dependencyManagement>
     <dependencies>
      <dependency>
@@ -20,8 +33,8 @@
     </dependencies>
   </dependencyManagement>
   <modules>
-   <module>jetty-8-server</module>
-   <module>jetty-9-server</module>
+   <module>bench-8-server</module>
+   <module>bench-9-server</module>
    <module>benchmark-client</module>
   </modules>
 </project>
