@@ -32,6 +32,7 @@ public class EchoConnection9Server
         __bufferPool= new ArrayByteBufferPool();
      
         ServerConnector connector = new ServerConnector(server,new EchoConnectionFactory());
+        connector.setPort(8080);
         server.addConnector(connector);
         server.start();
         server.join();

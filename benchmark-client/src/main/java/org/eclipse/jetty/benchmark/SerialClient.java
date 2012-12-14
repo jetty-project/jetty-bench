@@ -94,7 +94,7 @@ public class SerialClient
                     client.close();
                 BufferUtil.flipToFlush(responseBuf,pos);            
             }
-            while (!BufferUtil.toString(responseBuf).contains("</html>"));
+            while (!BufferUtil.toString(responseBuf).contains("\r\n\r\n"));
         }
         return i;
     }

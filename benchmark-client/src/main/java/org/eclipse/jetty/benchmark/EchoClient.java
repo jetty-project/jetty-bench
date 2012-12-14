@@ -80,7 +80,7 @@ public class EchoClient
         EchoClient bm = new EchoClient();
         bm.start();
         int done=bm.requestResponse(COUNT);
-        bm.stop("Serial Requests",done,COUNT);
+        bm.stop("Echo Requests",done,COUNT);
 
         COUNT=100;
         bm.start();
