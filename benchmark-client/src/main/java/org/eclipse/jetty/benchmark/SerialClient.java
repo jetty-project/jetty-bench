@@ -94,7 +94,7 @@ public class SerialClient
                     client.close();
                 BufferUtil.flipToFlush(responseBuf,pos);            
             }
-            while (!BufferUtil.toString(responseBuf).contains("\r\n\r\n"));
+            while (!BufferUtil.toString(responseBuf).contains("</html>"));
         }
         return i;
     }
@@ -137,10 +137,12 @@ public class SerialClient
         done=bm.requestResponse(COUNT);
         bm.stop("Serial Requests",done,COUNT);
 
+        /*
         COUNT=1000000;
         bm.start();
         done=bm.requestResponse(COUNT);
         bm.stop("Serial Requests",done,COUNT);
+        */
     }
 
 }

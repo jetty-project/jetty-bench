@@ -78,14 +78,12 @@ public class Jetty8BenchmarkServer
             response.setContentType("text/html");
             response.setStatus(HttpServletResponse.SC_OK);
            
-            /*
             PrintWriter out=response.getWriter();
 
             out.println("<html><body><h1>HelloServlet</h1>");
             for (int i=0;i<10;i++)
                 out.println("<p>This is some test text. How now brown cow. The rain in spain jumped over the lazy dog</p>");
             out.println("</body></html>");
-            */
         }
     }
 }

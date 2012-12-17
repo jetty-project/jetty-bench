@@ -112,7 +112,7 @@ public class PipelineClient
             BufferUtil.clear(responseBuf);
             String s="";
             
-            while (!s.contains("\r\n\r\n"))
+            while (!s.contains("</html>"))
             {
                 int pos=BufferUtil.flipToFill(responseBuf);
                 if (client.read(responseBuf)==-1)
@@ -123,7 +123,7 @@ public class PipelineClient
             int index=0;
             while (true)
             {
-                index=s.indexOf("\r\n\r\n",index);
+                index=s.indexOf("</html>",index);
                 if (index<0)
                     break;
                 responses++;
