@@ -2,12 +2,9 @@ package org.eclipse.jetty.benchmark;
 
 import java.nio.ByteBuffer;
 
-import org.eclipse.jetty.http.HttpField;
-import org.eclipse.jetty.http.HttpFields;
-import org.eclipse.jetty.http.HttpMethod;
-import org.eclipse.jetty.http.HttpParser;
-import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.toolchain.test.BenchmarkHelper;
+import org.eclipse.jetty.util.ArrayTernaryTrie;
+import org.eclipse.jetty.util.ArrayTrie;
 import org.eclipse.jetty.util.BufferUtil;
 import org.eclipse.jetty.util.Trie;
 
@@ -42,7 +39,7 @@ public class StringLookupBenchmark
     private void test(int iterations)
     {
         ByteBuffer buf[] = new ByteBuffer[lookup.length];
-        Trie<String> trie=new Trie<>();
+        Trie<String> trie=new ArrayTernaryTrie<>();
         int i=0;
         for (String[] test : lookup)
         {

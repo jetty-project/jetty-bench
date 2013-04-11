@@ -1,16 +1,19 @@
 package org.eclipse.jetty.benchmark;
 
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousCloseException;
 import java.nio.channels.SocketChannel;
+import java.util.concurrent.CountDownLatch;
 
 import org.eclipse.jetty.toolchain.test.BenchmarkHelper;
 import org.eclipse.jetty.util.BufferUtil;
 import org.eclipse.jetty.util.URIUtil;
 
-public class PipelineClient
+public class ParallelPipelineClient
 {
     private final String start = 
         "GET /benchmark/start HTTP/1.1\r\n"+
@@ -30,9 +33,9 @@ public class PipelineClient
 
     private final ByteBuffer requestBuf;
     private final ByteBuffer responseBuf;
-    private SocketChannel client;
+    private SocketChannel[] client;
         
-    public PipelineClient()
+    public ParallelPipelineClient()
     {
         requestBuf = BufferUtil.allocateDirect(4096);
         BufferUtil.flipToFill(requestBuf);
@@ -56,7 +59,9 @@ public class PipelineClient
             BufferUtil.flipToFlush(responseBuf,pos); 
         }
         
-        client=SocketChannel.open(new InetSocketAddress("localhost",8080));
+        client = new SocketChannel[8];
+        for (int i=0;i<client.length;i++)
+            client[i]=SocketChannel.open(new InetSocketAddress("localhost",8080));
     }
     
     public void stop(String test,int count,int of) throws IOException
@@ -78,9 +83,10 @@ public class PipelineClient
                 control.close();
             BufferUtil.flipToFlush(responseBuf,pos); 
         }
-        
-        if (client.isOpen())
-            client.close();
+
+        for (int i=0;i<client.length;i++)
+            if (client[i]!=null && client[i].isOpen())
+                client[i].close();
         client=null;
     }
     
@@ -94,9 +100,12 @@ public class PipelineClient
             {
                 try
                 {
-                    for (int i=0;client.isOpen() && i<count;i++)
+                    for (int i=0;i<count;i++)
                     {
-                        client.write(requestBuf.duplicate());
+                        int c=i%client.length;
+                        if (!client[c].isOpen())
+                            break;
+                        client[c].write(requestBuf.duplicate());
                     }
                 }
                 catch(Exception e)
@@ -106,45 +115,69 @@ public class PipelineClient
             }
         }.start();
         
-        int responses=0;
-        while (client.isOpen() && responses<count)
+        final CountDownLatch responses = new CountDownLatch(count);
+        
+        for (int i=0;i<client.length;i++)
         {
-            BufferUtil.clear(responseBuf);
-            String s="";
+            final int c=i;
+            final ByteBuffer buf = BufferUtil.allocateDirect(64*1024);
             
-            while (!s.contains("</html>"))
+            new Thread()
             {
-                int pos=BufferUtil.flipToFill(responseBuf);
-                if (client.read(responseBuf)==-1)
-                    client.close();
-                BufferUtil.flipToFlush(responseBuf,pos);  
-                s=BufferUtil.toString(responseBuf);
-            }
-            int index=0;
-            while (true)
-            {
-                index=s.indexOf("</html>",index);
-                if (index<0)
-                    break;
-                responses++;
-                index+=7;
-            }
+                @Override
+                public void run()
+                {
+                    try
+                    {
+                        while (client[c].isOpen() && responses.getCount()>0)
+                        {
+                            BufferUtil.clear(buf);
+                            String s="";
+
+                            while (!s.contains("</html>"))
+                            {
+                                int pos=BufferUtil.flipToFill(buf);
+                                if (client[c].read(buf)==-1)
+                                {
+                                    client[c].close();
+                                    break;
+                                }
+                                BufferUtil.flipToFlush(buf,pos);  
+                                s=BufferUtil.toString(buf);
+                            }
+                            int index=0;
+                            while (true)
+                            {
+                                index=s.indexOf("</html>",index);
+                                if (index<0)
+                                    break;
+                                responses.countDown();
+                                index+=7;
+                            }
+                        }
+                    }
+                    catch(AsynchronousCloseException e)
+                    {
+                        
+                    }
+                    catch(Exception e)
+                    {
+                        e.printStackTrace();
+                    }
+                    
+                }
+            }.start();
         }
-        return responses;
+        
+        responses.await();
+        return count;
     }
         
     public static void main(String... args) throws Exception
     {
-        int COUNT=10;
-        PipelineClient bm = new PipelineClient();
-        bm.start();
-        int done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
-
-        COUNT=100;
-        bm.start();
-        done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
+        int COUNT;
+        int done;
+        ParallelPipelineClient bm = new ParallelPipelineClient();
 
         COUNT=10000;
         bm.start();
@@ -152,26 +185,6 @@ public class PipelineClient
         bm.stop("Pipeline Requests",done,COUNT);
 
         COUNT=10000;
-        bm.start();
-        done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
-
-        COUNT=100000;
-        bm.start();
-        done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
-        
-        COUNT=100000;
-        bm.start();
-        done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
-        
-        COUNT=100000;
-        bm.start();
-        done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
-        
-        COUNT=100000;
         bm.start();
         done=bm.requestResponse(COUNT);
         bm.stop("Pipeline Requests",done,COUNT);
@@ -185,7 +198,17 @@ public class PipelineClient
         bm.start();
         done=bm.requestResponse(COUNT);
         bm.stop("Pipeline Requests",done,COUNT);
+        
 
+        COUNT=1000000;
+        bm.start();
+        done=bm.requestResponse(COUNT);
+        bm.stop("Pipeline Requests",done,COUNT);
+
+        COUNT=1000000;
+        bm.start();
+        done=bm.requestResponse(COUNT);
+        bm.stop("Pipeline Requests",done,COUNT);
         /*
     */
     }

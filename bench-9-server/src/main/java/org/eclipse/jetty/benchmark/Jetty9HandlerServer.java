@@ -50,14 +50,13 @@ public class Jetty9HandlerServer
                 }
                 out.println("<html><body>OK</body></html>");
             }
-            /*
+            
             PrintWriter out=response.getWriter();
 
             out.println("<html><body><h1>HelloServlet</h1>");
             for (int i=0;i<10;i++)
                 out.println("<p>This is some test text. How now brown cow. The rain in spain jumped over the lazy dog</p>");
             out.println("</body></html>");
-            */
         }
     }
 }

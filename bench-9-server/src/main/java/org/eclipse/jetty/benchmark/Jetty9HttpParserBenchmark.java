@@ -37,7 +37,9 @@ public class Jetty9HttpParserBenchmark
         bm.test(10000);
         bm.test(100000);
         bm.test(1000000);
-        bm.test(10000000);
+        bm.test(1000000);
+        bm.test(1000000);
+        bm.test(1000000);
     }
 
     private void test(int iterations)
@@ -103,7 +105,7 @@ public class Jetty9HttpParserBenchmark
         {                    
         }
         
-        public boolean startRequest(HttpMethod method, String methodString, String uri, HttpVersion version)
+        public boolean startRequest(HttpMethod method, String methodString, ByteBuffer uri, HttpVersion version)
         {
             return false;
         }
@@ -111,6 +113,12 @@ public class Jetty9HttpParserBenchmark
         public boolean parsedHostHeader(String host, int port)
         {
             return false;
+        }
+        
+        @Override
+        public int getHeaderCacheSize()
+        {
+            return 256;
         }
     };
 }

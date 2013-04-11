@@ -3,11 +3,13 @@ package org.eclipse.jetty.benchmark;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Request;
@@ -17,8 +19,10 @@ import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.ContextHandlerCollection;
 import org.eclipse.jetty.server.handler.DefaultHandler;
 import org.eclipse.jetty.server.handler.HandlerCollection;
+import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.toolchain.test.BenchmarkHelper;
+import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
 
 public class Jetty9BenchmarkServer
 {
@@ -38,10 +42,15 @@ public class Jetty9BenchmarkServer
         benchmark.setHandler(new BenchmarkHandler());
         contexts.addHandler(benchmark);
         
-        ServletContextHandler context = new ServletContextHandler();
+        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        context.setResourceBase("./src/main/resources/");
         context.setContextPath("/context");
-        context.addServlet(HelloServlet.class,"/hello/*");        
+        context.addServlet(HelloServlet.class,"/hello/*"); 
+        context.addServlet(SessionServlet.class,"/session/*");
+        context.addServlet(DefaultServlet.class,"/");
         contexts.addHandler(context);
+        
+        server.addBean(new ScheduledExecutorScheduler());
         
         server.start();
         server.join();
@@ -81,6 +90,37 @@ public class Jetty9BenchmarkServer
             PrintWriter out=response.getWriter();
 
             out.println("<html><body><h1>HelloServlet</h1>");
+            for (int i=0;i<10;i++)
+                out.println("<p>This is some test text. How now brown cow. The rain in spain jumped over the lazy dog</p>");
+            out.println("</body></html>");
+        }
+    }
+
+    public static class SessionServlet extends HttpServlet
+    {
+        @Override
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
+        {
+            HttpSession session = request.getSession(true);
+            AtomicInteger count;
+            if (session.isNew())
+            {
+                count=new AtomicInteger(1);
+                session.setAttribute("count",count);
+            }
+            else
+            {
+                count=(AtomicInteger)session.getAttribute("count");
+                count.incrementAndGet();
+            }
+            
+            response.setContentType("text/html");
+            response.setStatus(HttpServletResponse.SC_OK);
+           
+            PrintWriter out=response.getWriter();
+
+            out.println("<html><body><h1>SessionServlet</h1>");
+            out.append("<pre>count=").append(count.toString()).append("</pre>");
             for (int i=0;i<10;i++)
                 out.println("<p>This is some test text. How now brown cow. The rain in spain jumped over the lazy dog</p>");
             out.println("</body></html>");
