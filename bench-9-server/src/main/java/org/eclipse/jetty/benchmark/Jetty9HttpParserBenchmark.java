@@ -91,9 +91,8 @@ public class Jetty9HttpParserBenchmark
             return false;
         }
         
-        public boolean earlyEOF()
+        public void earlyEOF()
         {
-            return true;
         }
         
         public boolean content(ByteBuffer item)

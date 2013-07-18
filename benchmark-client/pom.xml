@@ -10,7 +10,7 @@
   <artifactId>benchmark-client</artifactId>
   <name>Example :: Jetty Benchmark Clients</name>
   <properties>
-    <jetty.version>9.0.0-SNAPSHOT</jetty.version>
+    <jetty.version>9.0.4-SNAPSHOT</jetty.version>
   </properties>
   <dependencies>
     <dependency>

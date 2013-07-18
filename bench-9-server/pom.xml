@@ -10,7 +10,7 @@
   <artifactId>bench-9-server</artifactId>
   <name>Example :: Jetty 9 Benchmark Server</name>
   <properties>
-    <jetty.version>9.0.2-SNAPSHOT</jetty.version>
+    <jetty.version>9.0.4-SNAPSHOT</jetty.version>
   </properties>
   <dependencies>
     <dependency>

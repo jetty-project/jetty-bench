@@ -199,6 +199,15 @@ public class ParallelPipelineClient
         done=bm.requestResponse(COUNT);
         bm.stop("Pipeline Requests",done,COUNT);
         
+        COUNT=1000000;
+        bm.start();
+        done=bm.requestResponse(COUNT);
+        bm.stop("Pipeline Requests",done,COUNT);
+
+        COUNT=1000000;
+        bm.start();
+        done=bm.requestResponse(COUNT);
+        bm.stop("Pipeline Requests",done,COUNT);
 
         COUNT=1000000;
         bm.start();

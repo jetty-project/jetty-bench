@@ -6,11 +6,10 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-  <groupId>org.eclipse.jetty.benchmark</groupId>
   <artifactId>bench-8-server</artifactId>
   <name>Example :: Jetty 8 Benchmark Server</name>
   <properties>
-    <jetty.version>8.1.8.v20121106</jetty.version>
+    <jetty.version>8.1.10.v20130312</jetty.version>
   </properties>
   <dependencies>
     <dependency>

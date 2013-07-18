@@ -4,7 +4,6 @@ import java.nio.ByteBuffer;
 
 import org.eclipse.jetty.toolchain.test.BenchmarkHelper;
 import org.eclipse.jetty.util.ArrayTernaryTrie;
-import org.eclipse.jetty.util.ArrayTrie;
 import org.eclipse.jetty.util.BufferUtil;
 import org.eclipse.jetty.util.Trie;
 
@@ -24,16 +23,23 @@ public class StringLookupBenchmark
     
     public static void main(String[] args) throws Exception
     {
+        System.err.printf("%d -> %d%n",Integer.MAX_VALUE,ArrayTernaryTrie.hilo(Integer.MAX_VALUE));
+        System.err.printf("%d -> %d%n",55,ArrayTernaryTrie.hilo(55));
+        System.err.printf("%d -> %d%n",54,ArrayTernaryTrie.hilo(54));
+        System.err.printf("%d -> %d%n",1,ArrayTernaryTrie.hilo(1));
+        System.err.printf("%d -> %d%n",0,ArrayTernaryTrie.hilo(0));
+        System.err.printf("%d -> %d%n",-1,ArrayTernaryTrie.hilo(-1));
+        System.err.printf("%d -> %d%n",-35,ArrayTernaryTrie.hilo(-35));
+        System.err.printf("%d -> %d%n",-36,ArrayTernaryTrie.hilo(-36));
+        System.err.printf("%d -> %d%n",Integer.MIN_VALUE,ArrayTernaryTrie.hilo(Integer.MIN_VALUE));
+        
+        // System.exit(1);
+        
         StringLookupBenchmark bm = new StringLookupBenchmark();
         
-        bm.test(10);
-        bm.test(100);
-        bm.test(1000);
-        bm.test(10000);
-        bm.test(100000);
-        bm.test(1000000);
         bm.test(10000000);
-        bm.test(100000000);
+        bm.test(10000000);
+        bm.test(10000000);
     }
 
     private void test(int iterations)
