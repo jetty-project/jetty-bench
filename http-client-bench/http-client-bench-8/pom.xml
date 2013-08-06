@@ -2,13 +2,13 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <parent>
         <groupId>org.eclipse.jetty.benchmark</groupId>
-        <artifactId>benchmark-project</artifactId>
+        <artifactId>http-client-bench</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
-    <artifactId>bench-8-server</artifactId>
-    <name>Jetty Benchmark Server :: Jetty 8</name>
+    <artifactId>http-client-bench-8</artifactId>
+    <name>HTTP Client Benchmark :: Jetty 8</name>
 
     <dependencies>
         <dependency>
