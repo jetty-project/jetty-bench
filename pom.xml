@@ -1,40 +1,53 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-  <parent>
-    <groupId>org.eclipse.jetty</groupId>
-    <artifactId>jetty-parent</artifactId>
-    <version>20</version>
-  </parent>
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>org.eclipse.jetty.benchmark</groupId>
-  <artifactId>benchmark-parent</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
-  <packaging>pom</packaging>
-  <name>Jetty Benchmark</name>
-  <build>
-    <defaultGoal>install</defaultGoal>
-    <plugins>
-      <plugin>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <source>1.7</source>
-          <target>1.7</target>
-          <verbose>false</verbose>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
-  <dependencyManagement>
-    <dependencies>
-     <dependency>
-      <groupId>org.eclipse.jetty.toolchain</groupId>
-      <artifactId>jetty-test-helper</artifactId>
-      <version>2.1-SNAPSHOT</version>
-     </dependency>
-    </dependencies>
-  </dependencyManagement>
-  <modules>
-   <module>bench-8-server</module>
-   <module>bench-9-server</module>
-   <module>benchmark-client</module>
-  </modules>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <parent>
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-parent</artifactId>
+        <version>20</version>
+    </parent>
+
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.eclipse.jetty.benchmark</groupId>
+    <artifactId>benchmark-project</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>Jetty Benchmark Project</name>
+
+    <properties>
+        <jetty-8-version>8.1.13-SNAPSHOT</jetty-8-version>
+        <jetty-9-version>9.1.0-SNAPSHOT</jetty-9-version>
+    </properties>
+
+    <modules>
+        <module>bench-8-server</module>
+        <module>bench-9-server</module>
+        <module>benchmark-client</module>
+        <module>http-client-bench</module>
+        <module>websocket-client-bench</module>
+    </modules>
+
+    <build>
+        <defaultGoal>install</defaultGoal>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.7</source>
+                    <target>1.7</target>
+                    <verbose>false</verbose>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.eclipse.jetty.toolchain</groupId>
+                <artifactId>jetty-test-helper</artifactId>
+                <version>2.1</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
 </project>
