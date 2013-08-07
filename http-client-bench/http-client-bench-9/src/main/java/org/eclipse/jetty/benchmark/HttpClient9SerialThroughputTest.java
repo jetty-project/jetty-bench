@@ -17,31 +17,23 @@ package org.eclipse.jetty.benchmark;//
 //
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.api.Connection;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.api.Response;
 import org.eclipse.jetty.client.api.Result;
-import org.eclipse.jetty.client.http.HttpConnectionOverHTTP;
-import org.eclipse.jetty.client.http.HttpConnectionPool;
-import org.eclipse.jetty.client.http.HttpDestinationOverHTTP;
 import org.eclipse.jetty.client.util.BytesContentProvider;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.http.HttpMethod;
-import org.eclipse.jetty.http.HttpScheme;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
@@ -51,7 +43,6 @@ import org.eclipse.jetty.util.IO;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
-import org.eclipse.jetty.util.thread.Scheduler;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -59,10 +50,9 @@ import org.junit.Test;
 public class HttpClient9SerialThroughputTest
 {
     private final Logger logger = Log.getLogger(HttpClient9SerialThroughputTest.class);
-    protected String scheme;
-    protected Server server;
-    protected HttpClient client;
-    protected NetworkConnector connector;
+    private Server server;
+    private NetworkConnector connector;
+    private HttpClient client;
 
     public void start(Handler handler) throws Exception
     {
@@ -100,8 +90,8 @@ public class HttpClient9SerialThroughputTest
 
         Random random = new Random();
         // At least 25k requests to warmup properly (use -XX:+PrintCompilation to verify JIT activity)
-        int runs = 1;
-        int iterations = 500;
+        int runs = 5;
+        int iterations = 5000;
         for (int i = 0; i < runs; ++i)
         {
             run(random, iterations);
@@ -120,40 +110,14 @@ public class HttpClient9SerialThroughputTest
         CountDownLatch latch = new CountDownLatch(iterations);
         List<String> failures = new ArrayList<>();
 
-        int factor = logger.isDebugEnabled() ? 25 : 1;
-        factor *= "http".equalsIgnoreCase(scheme) ? 10 : 1000;
-
-        // Dumps the state of the client if the test takes too long
-        final Thread testThread = Thread.currentThread();
-        Scheduler.Task task = client.getScheduler().schedule(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                logger.warn("Interrupting test, it is taking too long");
-                for (String host : Arrays.asList("localhost", "127.0.0.1"))
-                {
-                    HttpDestinationOverHTTP destination = (HttpDestinationOverHTTP)client.getDestination(scheme, host, connector.getLocalPort());
-                    HttpConnectionPool connectionPool = destination.getHttpConnectionPool();
-                    for (Connection connection : new ArrayList<>(connectionPool.getActiveConnections()))
-                    {
-                        HttpConnectionOverHTTP active = (HttpConnectionOverHTTP)connection;
-                        logger.warn(active.getEndPoint() + " exchange " + active.getHttpChannel().getHttpExchange());
-                    }
-                }
-                testThread.interrupt();
-            }
-        }, iterations * factor, TimeUnit.MILLISECONDS);
-
         long begin = System.nanoTime();
         for (int i = 0; i < iterations; ++i)
         {
 //            test(random, latch, failures);
-            test("http", "localhost", "GET", false, false, 64 * 1024, false, latch, failures);
+            test("http", "localhost", "GET", false, false, 64 * 1024, latch, failures);
         }
         Assert.assertTrue(latch.await(iterations, TimeUnit.SECONDS));
         long end = System.nanoTime();
-        task.cancel();
         long elapsed = TimeUnit.NANOSECONDS.toMillis(end - begin);
         logger.info("{} requests in {} ms, {} req/s", iterations, elapsed, elapsed > 0 ? iterations * 1000 / elapsed : -1);
 
@@ -170,23 +134,21 @@ public class HttpClient9SerialThroughputTest
         // Choose a random method
         HttpMethod method = random.nextBoolean() ? HttpMethod.GET : HttpMethod.POST;
 
-        boolean ssl = HttpScheme.HTTPS.is(scheme);
-
         // Choose randomly whether to close the connection on the client or on the server
         boolean clientClose = false;
-        if (!ssl && random.nextBoolean())
+        if (random.nextBoolean())
             clientClose = true;
         boolean serverClose = false;
-        if (!ssl && random.nextBoolean())
+        if (random.nextBoolean())
             serverClose = true;
 
         int maxContentLength = 64 * 1024;
         int contentLength = random.nextInt(maxContentLength) + 1;
 
-        test(scheme, host, method.asString(), clientClose, serverClose, contentLength, true, latch, failures);
+        test("http", host, method.asString(), clientClose, serverClose, contentLength, latch, failures);
     }
 
-    private void test(String scheme, String host, String method, boolean clientClose, boolean serverClose, int contentLength, final boolean checkContentLength, final CountDownLatch latch, final List<String> failures) throws InterruptedException
+    private void test(String scheme, String host, String method, boolean clientClose, boolean serverClose, int contentLength, final CountDownLatch latch, final List<String> failures) throws InterruptedException
     {
         Request request = client.newRequest(host, connector.getLocalPort())
                 .scheme(scheme)
@@ -211,26 +173,6 @@ public class HttpClient9SerialThroughputTest
         final CountDownLatch requestLatch = new CountDownLatch(1);
         request.send(new Response.Listener.Empty()
         {
-            private final AtomicInteger contentLength = new AtomicInteger();
-
-            @Override
-            public void onHeaders(Response response)
-            {
-                if (checkContentLength)
-                {
-                    String content = response.getHeaders().get("X-Content");
-                    if (content != null)
-                        contentLength.set(Integer.parseInt(content));
-                }
-            }
-
-            @Override
-            public void onContent(Response response, ByteBuffer content)
-            {
-                if (checkContentLength)
-                    contentLength.addAndGet(-content.remaining());
-            }
-
             @Override
             public void onComplete(Result result)
             {
@@ -239,9 +181,6 @@ public class HttpClient9SerialThroughputTest
                     result.getFailure().printStackTrace();
                     failures.add("Result failed " + result);
                 }
-
-                if (checkContentLength && contentLength.get() != 0)
-                    failures.add("Content length mismatch " + contentLength);
 
                 requestLatch.countDown();
                 latch.countDown();

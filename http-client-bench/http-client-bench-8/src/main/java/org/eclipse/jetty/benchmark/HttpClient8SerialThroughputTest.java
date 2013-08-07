@@ -23,7 +23,6 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -32,7 +31,6 @@ import org.eclipse.jetty.client.Address;
 import org.eclipse.jetty.client.ContentExchange;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.http.HttpHeaders;
-import org.eclipse.jetty.io.Buffer;
 import org.eclipse.jetty.io.ByteArrayBuffer;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Handler;
@@ -50,11 +48,9 @@ import org.junit.Test;
 public class HttpClient8SerialThroughputTest
 {
     private final Logger logger = Log.getLogger(HttpClient8SerialThroughputTest.class);
-
-    protected String scheme;
-    protected Server server;
-    protected HttpClient client;
-    protected Connector connector;
+    private Server server;
+    private Connector connector;
+    private HttpClient client;
 
     public void start(Handler handler) throws Exception
     {
@@ -112,42 +108,14 @@ public class HttpClient8SerialThroughputTest
         CountDownLatch latch = new CountDownLatch(iterations);
         List<String> failures = new ArrayList<>();
 
-        int factor = logger.isDebugEnabled() ? 25 : 1;
-        factor *= "http".equalsIgnoreCase(scheme) ? 10 : 1000;
-
-        // Dumps the state of the client if the test takes too long
-/*
-        final Thread testThread = Thread.currentThread();
-        Scheduler.Task task = client.getScheduler().schedule(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                logger.warn("Interrupting test, it is taking too long");
-                for (String host : Arrays.asList("localhost", "127.0.0.1"))
-                {
-                    HttpDestinationOverHTTP destination = (HttpDestinationOverHTTP)client.getDestination(scheme, host, connector.getLocalPort());
-                    HttpConnectionPool connectionPool = destination.getHttpConnectionPool();
-                    for (Connection connection : new ArrayList<>(connectionPool.getActiveConnections()))
-                    {
-                        HttpConnectionOverHTTP active = (HttpConnectionOverHTTP)connection;
-                        logger.warn(active.getEndPoint() + " exchange " + active.getHttpChannel().getHttpExchange());
-                    }
-                }
-                testThread.interrupt();
-            }
-        }, iterations * factor, TimeUnit.MILLISECONDS);
-*/
-
         long begin = System.nanoTime();
         for (int i = 0; i < iterations; ++i)
         {
 //            test(random, latch, failures);
-            test("http", "localhost", "GET", false, false, 64 * 1024, false, latch, failures);
+            test("http", "localhost", "GET", false, false, 64 * 1024, latch, failures);
         }
         Assert.assertTrue(latch.await(iterations, TimeUnit.SECONDS));
         long end = System.nanoTime();
-//        task.cancel();
         long elapsed = TimeUnit.NANOSECONDS.toMillis(end - begin);
         logger.info("{} requests in {} ms, {} req/s", iterations, elapsed, elapsed > 0 ? iterations * 1000 / elapsed : -1);
 
@@ -164,51 +132,27 @@ public class HttpClient8SerialThroughputTest
         // Choose a random method
         String method = random.nextBoolean() ? "GET" : "POST";
 
-        boolean ssl = false;
-
         // Choose randomly whether to close the connection on the client or on the server
         boolean clientClose = false;
-        if (!ssl && random.nextBoolean())
+        if (random.nextBoolean())
             clientClose = true;
         boolean serverClose = false;
-        if (!ssl && random.nextBoolean())
+        if (random.nextBoolean())
             serverClose = true;
 
         int maxContentLength = 64 * 1024;
         int contentLength = random.nextInt(maxContentLength) + 1;
 
-        test(scheme, host, method, clientClose, serverClose, contentLength, true, latch, failures);
+        test("http", host, method, clientClose, serverClose, contentLength, latch, failures);
     }
 
-    private void test(String scheme, String host, String method, boolean clientClose, boolean serverClose, int contentLength, final boolean checkContentLength, final CountDownLatch latch, final List<String> failures) throws Exception
+    private void test(String scheme, String host, String method, boolean clientClose, boolean serverClose, int contentLength, final CountDownLatch latch, final List<String> failures) throws Exception
     {
         ContentExchange exchange = new ContentExchange(true)
         {
-            private final AtomicInteger contentLength = new AtomicInteger();
-
-            @Override
-            protected void onResponseHeaderComplete() throws IOException
-            {
-                if (checkContentLength)
-                {
-                    String content = getResponseFields().getStringField("X-Content");
-                    if (content != null)
-                        contentLength.set(Integer.parseInt(content));
-                }
-            }
-
-            @Override
-            protected void onResponseContent(Buffer content) throws IOException
-            {
-                if (checkContentLength)
-                    contentLength.addAndGet(-content.length());
-            }
-
             @Override
             protected void onResponseComplete() throws IOException
             {
-                if (checkContentLength && contentLength.get() != 0)
-                    failures.add("Content length mismatch " + contentLength);
                 latch.countDown();
             }
 
