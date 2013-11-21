@@ -15,7 +15,7 @@
 
     <properties>
         <jetty-8-version>8.1.13-SNAPSHOT</jetty-8-version>
-        <jetty-9-version>9.1.0-SNAPSHOT</jetty-9-version>
+        <jetty-9-version>9.1.1-SNAPSHOT</jetty-9-version>
     </properties>
 
     <modules>

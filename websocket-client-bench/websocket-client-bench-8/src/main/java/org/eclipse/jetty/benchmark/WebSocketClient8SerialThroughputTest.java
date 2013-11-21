@@ -98,15 +98,15 @@ public class WebSocketClient8SerialThroughputTest
                 .get(5, TimeUnit.SECONDS);
 
         // At least 25k requests to warmup properly (use -XX:+PrintCompilation to verify JIT activity)
-        int runs = 5;
-        int iterations = 20_000;
+        int runs = 3;
+        int iterations = 200_000;
         for (int i = 0; i < runs; ++i)
         {
             run(webSocket, connection, iterations);
         }
 
         // Re-run after warmup
-        iterations = 200_000;
+        iterations = 1_000_000;
         for (int i = 0; i < runs; ++i)
         {
             run(webSocket, connection, iterations);
