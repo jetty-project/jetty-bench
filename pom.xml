@@ -14,8 +14,8 @@
     <name>Jetty Benchmark Project</name>
 
     <properties>
-        <jetty-8-version>8.1.13-SNAPSHOT</jetty-8-version>
-        <jetty-9-version>9.1.1-SNAPSHOT</jetty-9-version>
+        <jetty-8-version>8.1.14.v20131031</jetty-8-version>
+        <jetty-9-version>9.1.2-SNAPSHOT</jetty-9-version>
     </properties>
 
     <modules>
