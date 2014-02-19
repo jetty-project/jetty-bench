@@ -14,6 +14,7 @@
     <modules>
         <module>websocket-client-bench-8</module>
         <module>websocket-client-bench-9</module>
+        <module>websocket-client-bench-javax</module>
     </modules>
 
 </project>

@@ -40,6 +40,7 @@ import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
 import org.eclipse.jetty.websocket.servlet.WebSocketCreator;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 public class WebSocketClient9SerialThroughputTest
@@ -49,6 +50,7 @@ public class WebSocketClient9SerialThroughputTest
     private NetworkConnector connector;
     private WebSocketClient client;
 
+    @Before
     public void start() throws Exception
     {
         server = new Server();
@@ -91,29 +93,27 @@ public class WebSocketClient9SerialThroughputTest
     @Test
     public void testIterative() throws Exception
     {
-        start();
-
         Object webSocket = new ClientWebSocket();
-        Session connection = client.connect(webSocket, new URI("ws://localhost:" + connector.getLocalPort() + "/ws"))
-                .get(555, TimeUnit.SECONDS);
+        final Session session = client.connect(webSocket, new URI("ws://localhost:" + connector.getLocalPort() + "/ws"))
+                .get(5, TimeUnit.SECONDS);
 
         // At least 25k requests to warmup properly (use -XX:+PrintCompilation to verify JIT activity)
         int runs = 3;
         int iterations = 200_000;
         for (int i = 0; i < runs; ++i)
         {
-            run(connection, iterations);
+            run(session, iterations);
         }
 
         // Re-run after warmup
         iterations = 1_000_000;
         for (int i = 0; i < runs; ++i)
         {
-            run(connection, iterations);
+            run(session, iterations);
         }
     }
 
-    private void run(Session connection, int iterations)
+    private void run(Session session, int iterations) throws IOException
     {
         char[] chars = new char[1024];
         Arrays.fill(chars, 'x');
@@ -122,22 +122,22 @@ public class WebSocketClient9SerialThroughputTest
         long begin = System.nanoTime();
         for (int i = 0; i < iterations; ++i)
         {
-            test(connection, message);
+            test(session, message);
         }
         long end = System.nanoTime();
         long elapsed = TimeUnit.NANOSECONDS.toMillis(end - begin);
         logger.info("{} messages in {} ms, {} msgs/s", iterations, elapsed, elapsed > 0 ? iterations * 1000 / elapsed : -1);
     }
 
-    private void test(Session connection, String message)
+    private void test(Session session, String message)
     {
         try
         {
-            connection.getRemote().sendString(message);
+            session.getRemote().sendString(message);
         }
         catch (IOException x)
         {
-            connection.close(1011, x.getMessage());
+            session.close(1011, x.getMessage());
         }
     }
 
