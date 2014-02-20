@@ -50,10 +50,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-public class JSRWebSocketClientSerialThroughputTest
+public class JSRAsyncWebSocketClientSerialThroughputTest
 {
     private static final int MAX_DIGITS = 9;
-    protected static final Logger logger = Log.getLogger(JSRWebSocketClientSerialThroughputTest.class);
+    protected static final Logger logger = Log.getLogger(JSRAsyncWebSocketClientSerialThroughputTest.class);
 
     private Server server;
     private NetworkConnector connector;
@@ -132,34 +132,42 @@ public class JSRWebSocketClientSerialThroughputTest
         }
     }
 
-    private void run(Session session, int currentRun, int iterations) throws IOException
+    private void run(final Session session, final int currentRun, final int iterations) throws IOException
     {
-        char[] chars = new char[1024];
+        final char[] chars = new char[1024];
         Arrays.fill(chars, 'x');
+
+        SendHandler handler = new SendHandler()
+        {
+            private int iteration;
+
+            @Override
+            public void onResult(SendResult result)
+            {
+                while (iteration < iterations)
+                {
+                    String number = String.valueOf(currentRun * iterations + iteration);
+                    ++iteration;
+                    String messageNumber = number;
+                    for (int j = 0; j < (MAX_DIGITS - number.length()); ++j)
+                        messageNumber = "0" + messageNumber;
+                    for (int j = 0; j < MAX_DIGITS; ++j)
+                        chars[j] = messageNumber.charAt(j);
+                    test(session, new String(chars), this);
+                }
+            }
+        };
+
         long begin = System.nanoTime();
-        perform(session, chars, currentRun, iterations);
+        handler.onResult(new SendResult());
         long end = System.nanoTime();
         long elapsed = TimeUnit.NANOSECONDS.toMillis(end - begin);
         logger.info("{} messages in {} ms, {} msgs/s", iterations, elapsed, elapsed > 0 ? iterations * 1000 / elapsed : -1);
     }
 
-    protected void perform(Session session, char[] chars, int currentRun, int iterations) throws IOException
+    protected void test(Session session, String message, SendHandler callback)
     {
-        for (int i = 0; i < iterations; ++i)
-        {
-            String number = String.valueOf(currentRun * iterations + i);
-            String messageNumber = number;
-            for (int j = 0; j < (MAX_DIGITS - number.length()); ++j)
-                messageNumber = "0" + messageNumber;
-            for (int j = 0; j < MAX_DIGITS; ++j)
-                chars[j] = messageNumber.charAt(j);
-            test(session, new String(chars));
-        }
-    }
-
-    protected void test(Session session, String message) throws IOException
-    {
-        session.getBasicRemote().sendText(message);
+        session.getAsyncRemote().sendText(message, callback);
     }
 
     protected static void close(Session session, Throwable x)
@@ -228,7 +236,7 @@ public class JSRWebSocketClientSerialThroughputTest
                     throw new IllegalStateException();
                 }
 
-                session.getBasicRemote().sendText(message);
+                session.getAsyncRemote().sendText(message, this);
             }
             catch (Exception x)
             {
