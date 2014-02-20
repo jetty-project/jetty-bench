@@ -19,7 +19,6 @@
 package org.eclipse.jetty.benchmark;
 
 import java.io.IOException;
-
 import javax.servlet.http.HttpServletRequest;
 
 import org.eclipse.jetty.server.Connector;
@@ -34,7 +33,7 @@ import org.eclipse.jetty.websocket.WebSocketServlet;
 
 public class WebSocketServerTest8
 {
-    private static final Logger logger = Log.getLogger(WebSocketClient8SerialThroughputTest.class);
+    private static final Logger logger = Log.getLogger(WebSocketServerTest8.class);
 
     public static void main(String... args) throws Exception
     {

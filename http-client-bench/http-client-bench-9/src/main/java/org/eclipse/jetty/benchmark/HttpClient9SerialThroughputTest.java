@@ -171,7 +171,7 @@ public class HttpClient9SerialThroughputTest
         }
 
         final CountDownLatch requestLatch = new CountDownLatch(1);
-        request.send(new Response.Listener.Empty()
+        request.send(new Response.Listener.Adapter()
         {
             @Override
             public void onComplete(Result result)

@@ -21,12 +21,9 @@ package org.eclipse.jetty.benchmark;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.servlet.http.HttpServletRequest;
 
 import junit.framework.Assert;
@@ -35,6 +32,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.nio.SelectChannelConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.component.Dumpable;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
@@ -48,13 +46,12 @@ import org.junit.Test;
 
 public class WebSocketClient8SerialThroughputTest
 {
+    private static final int MAX_DIGITS = 9;
     private static final Logger logger = Log.getLogger(WebSocketClient8SerialThroughputTest.class);
 
-    private final AtomicLong messages = new AtomicLong();
     private Server server;
     private Connector connector;
     private WebSocketClientFactory clientFactory;
-    private Timer scheduler;
 
     @Before
     public void start() throws Exception
@@ -73,15 +70,11 @@ public class WebSocketClient8SerialThroughputTest
         executor.setName(executor.getName() + "-client");
         clientFactory = new WebSocketClientFactory(executor);
         clientFactory.start();
-
-        scheduler = new Timer();
     }
 
     @After
     public void dispose() throws Exception
     {
-        if (scheduler != null)
-            scheduler.cancel();
         if (clientFactory != null)
             clientFactory.stop();
         if (server != null)
@@ -91,70 +84,77 @@ public class WebSocketClient8SerialThroughputTest
     @Test
     public void testIterative() throws Exception
     {
-        ClientWebSocket webSocket = new ClientWebSocket();
+        int runs = 10;
+        int iterations = 50_000;
+        int count = runs * iterations;
+        CountDownLatch latch = new CountDownLatch(count);
+        ClientWebSocket client = new ClientWebSocket(latch);
         WebSocketClient webSocketClient = clientFactory.newWebSocketClient();
         webSocketClient.setMaxIdleTime(30000);
-        WebSocket.Connection connection = webSocketClient.open(new URI("ws://localhost:" + connector.getLocalPort()), webSocket)
+
+        WebSocket.Connection connection = webSocketClient.open(new URI("ws://localhost:" + connector.getLocalPort()), client)
                 .get(5, TimeUnit.SECONDS);
-
-        // At least 25k requests to warmup properly (use -XX:+PrintCompilation to verify JIT activity)
-        int runs = 3;
-        int iterations = 200_000;
-        for (int i = 0; i < runs; ++i)
+        try
         {
-            run(webSocket, connection, iterations);
+            for (int i = 0; i < runs; ++i)
+            {
+                run(connection, i, iterations);
+            }
+
+            boolean complete = latch.await(5 * count, TimeUnit.MILLISECONDS);
+            if (!complete)
+            {
+                logger.info(((Dumpable)client).dump());
+                logger.info(server.dump());
+                logger.info("Server Arrived/Expected: {}/{}", ServerWebSocket.counter.get(), count);
+                logger.info("Client Arrived/Expected: {}/{}", count - latch.getCount(), count);
+                Assert.fail();
+            }
         }
-
-        // Re-run after warmup
-        iterations = 1_000_000;
-        for (int i = 0; i < runs; ++i)
+        finally
         {
-            run(webSocket, connection, iterations);
+            connection.close();
         }
     }
 
-    private void run(ClientWebSocket webSocket, WebSocket.Connection connection, int iterations) throws Exception
+    private void run(WebSocket.Connection session, int currentRun, int iterations) throws Exception
     {
         char[] chars = new char[1024];
         Arrays.fill(chars, 'x');
-        String message = new String(chars);
-
-        webSocket.reset(iterations);
-
         long begin = System.nanoTime();
-        for (int i = 0; i < iterations; ++i)
-        {
-            test(connection, message);
-        }
+        perform(session, chars, currentRun, iterations);
         long end = System.nanoTime();
         long elapsed = TimeUnit.NANOSECONDS.toMillis(end - begin);
         logger.info("{} messages in {} ms, {} msgs/s", iterations, elapsed, elapsed > 0 ? iterations * 1000 / elapsed : -1);
-
-        Assert.assertTrue(webSocket.await(iterations, TimeUnit.MILLISECONDS));
-        messages.set(0);
     }
 
-    private void test(WebSocket.Connection connection, String message) throws Exception
+    protected void perform(WebSocket.Connection session, char[] chars, int currentRun, int iterations) throws IOException
     {
-        TimerTask task = new TimerTask()
+        for (int i = 0; i < iterations; ++i)
         {
-            @Override
-            public void run()
-            {
-                System.err.println("Messages: " + messages);
-                clientFactory.dumpStdErr();
-                server.dumpStdErr();
-            }
-        };
-        scheduler.schedule(task, 5000);
-        messages.incrementAndGet();
-        connection.sendMessage(message);
-        task.cancel();
+            String number = String.valueOf(currentRun * iterations + i);
+            String messageNumber = number;
+            for (int j = 0; j < (MAX_DIGITS - number.length()); ++j)
+                messageNumber = "0" + messageNumber;
+            for (int j = 0; j < MAX_DIGITS; ++j)
+                chars[j] = messageNumber.charAt(j);
+            test(session, new String(chars));
+        }
     }
 
-    public class ClientWebSocket implements WebSocket.OnTextMessage
+    private void test(WebSocket.Connection connection, String message) throws IOException
     {
-        private final AtomicReference<CountDownLatch> latch = new AtomicReference<>();
+        connection.sendMessage(message);
+    }
+
+    public static class ClientWebSocket implements WebSocket.OnTextMessage
+    {
+        private final CountDownLatch latch;
+
+        public ClientWebSocket(CountDownLatch latch)
+        {
+            this.latch = latch;
+        }
 
         @Override
         public void onOpen(Connection connection)
@@ -164,8 +164,7 @@ public class WebSocketClient8SerialThroughputTest
         @Override
         public void onMessage(String data)
         {
-            messages.decrementAndGet();
-            latch.get().countDown();
+            latch.countDown();
         }
 
         @Override
@@ -173,20 +172,12 @@ public class WebSocketClient8SerialThroughputTest
         {
             logger.warn("WebSocket closed {}/{}", closeCode, message);
         }
-
-        private void reset(int count)
-        {
-            latch.set(new CountDownLatch(count));
-        }
-
-        private boolean await(long timeout, TimeUnit unit) throws InterruptedException
-        {
-            return latch.get().await(timeout, unit);
-        }
     }
 
     public static class ServerWebSocket extends WebSocketServlet
     {
+        private static final AtomicInteger counter = new AtomicInteger();
+
         @Override
         public WebSocket doWebSocketConnect(HttpServletRequest request, String protocol)
         {
@@ -201,14 +192,23 @@ public class WebSocketClient8SerialThroughputTest
             public void onOpen(Connection connection)
             {
                 this.connection = connection;
+                counter.set(0);
             }
 
             @Override
-            public void onMessage(String data)
+            public void onMessage(String message)
             {
                 try
                 {
-                    connection.sendMessage(data);
+                    int actual = Integer.parseInt(message.substring(0, MAX_DIGITS));
+                    int expected = counter.getAndIncrement();
+                    if (actual != expected)
+                    {
+                        logger.info("MISMATCH: actual {} != expected {}", actual, expected);
+                        throw new IllegalStateException();
+                    }
+
+                    connection.sendMessage(message);
                 }
                 catch (IOException x)
                 {

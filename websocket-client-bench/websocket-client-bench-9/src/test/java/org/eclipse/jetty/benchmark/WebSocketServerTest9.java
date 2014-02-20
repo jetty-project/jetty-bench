@@ -19,7 +19,6 @@
 package org.eclipse.jetty.benchmark;
 
 import java.io.IOException;
-
 import javax.servlet.http.HttpServlet;
 
 import org.eclipse.jetty.server.Server;

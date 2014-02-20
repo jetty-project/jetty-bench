@@ -21,13 +21,15 @@ package org.eclipse.jetty.benchmark;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import javax.servlet.http.HttpServlet;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.util.component.Dumpable;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
@@ -40,15 +42,18 @@ import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
 import org.eclipse.jetty.websocket.servlet.WebSocketCreator;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 public class WebSocketClient9SerialThroughputTest
 {
+    private static final int MAX_DIGITS = 9;
     private static final Logger logger = Log.getLogger(WebSocketClient9SerialThroughputTest.class);
+
     private Server server;
     private NetworkConnector connector;
-    private WebSocketClient client;
+    private WebSocketClient wsClient;
 
     @Before
     public void start() throws Exception
@@ -59,7 +64,7 @@ public class WebSocketClient9SerialThroughputTest
 
         ServletContextHandler context = new ServletContextHandler(server, "", true, false);
         WebSocketUpgradeFilter filter = WebSocketUpgradeFilter.configureContext(context);
-        filter.addMapping(new ServletPathSpec("/ws"), new WebSocketCreator()
+        filter.addMapping(new ServletPathSpec("/"), new WebSocketCreator()
         {
             @Override
             public Object createWebSocket(ServletUpgradeRequest servletUpgradeRequest, ServletUpgradeResponse servletUpgradeResponse)
@@ -69,80 +74,95 @@ public class WebSocketClient9SerialThroughputTest
         });
 
         // TODO: Dummy servlet otherwise the filter does not work, *and* must NOT be mapped to /*
-        context.addServlet(HttpServlet.class, "/ws");
+//        context.addServlet(HttpServlet.class, "/ws");
 
         server.start();
 
         QueuedThreadPool executor = new QueuedThreadPool();
         executor.setName(executor.getName() + "-client");
-        client = new WebSocketClient();
-        client.setExecutor(executor);
-        client.start();
+        wsClient = new WebSocketClient();
+        wsClient.setExecutor(executor);
+        wsClient.start();
     }
 
     @After
     public void dispose() throws Exception
     {
-        Thread.sleep(1000);
+        if (wsClient != null)
+            wsClient.stop();
         if (server != null)
             server.stop();
-        if (client != null)
-            client.stop();
     }
 
     @Test
     public void testIterative() throws Exception
     {
-        Object webSocket = new ClientWebSocket();
-        final Session session = client.connect(webSocket, new URI("ws://localhost:" + connector.getLocalPort() + "/ws"))
-                .get(5, TimeUnit.SECONDS);
+        int runs = 10;
+        int iterations = 50_000;
+        int count = runs * iterations;
+        CountDownLatch latch = new CountDownLatch(count);
+        ClientWebSocket client = new ClientWebSocket(latch);
+        wsClient.setMaxIdleTimeout(30000);
 
-        // At least 25k requests to warmup properly (use -XX:+PrintCompilation to verify JIT activity)
-        int runs = 3;
-        int iterations = 200_000;
-        for (int i = 0; i < runs; ++i)
+        try (Session session = wsClient.connect(client, new URI("ws://localhost:" + connector.getLocalPort()))
+                .get(5, TimeUnit.SECONDS))
         {
-            run(session, iterations);
-        }
+            for (int i = 0; i < runs; ++i)
+            {
+                run(session, i, iterations);
+            }
 
-        // Re-run after warmup
-        iterations = 1_000_000;
-        for (int i = 0; i < runs; ++i)
-        {
-            run(session, iterations);
+            boolean complete = latch.await(5 * count, TimeUnit.MILLISECONDS);
+            if (!complete)
+            {
+                logger.info(((Dumpable)client).dump());
+                logger.info(server.dump());
+                logger.info("Server Arrived/Expected: {}/{}", ServerWebSocket.counter.get(), count);
+                logger.info("Client Arrived/Expected: {}/{}", count - latch.getCount(), count);
+                Assert.fail();
+            }
         }
     }
 
-    private void run(Session session, int iterations) throws IOException
+    private void run(Session session, int currentRun, int iterations) throws IOException
     {
         char[] chars = new char[1024];
         Arrays.fill(chars, 'x');
-        String message = new String(chars);
-
         long begin = System.nanoTime();
-        for (int i = 0; i < iterations; ++i)
-        {
-            test(session, message);
-        }
+        perform(session, chars, currentRun, iterations);
         long end = System.nanoTime();
         long elapsed = TimeUnit.NANOSECONDS.toMillis(end - begin);
         logger.info("{} messages in {} ms, {} msgs/s", iterations, elapsed, elapsed > 0 ? iterations * 1000 / elapsed : -1);
     }
 
-    private void test(Session session, String message)
+    protected void perform(Session session, char[] chars, int currentRun, int iterations) throws IOException
     {
-        try
+        for (int i = 0; i < iterations; ++i)
         {
-            session.getRemote().sendString(message);
+            String number = String.valueOf(currentRun * iterations + i);
+            String messageNumber = number;
+            for (int j = 0; j < (MAX_DIGITS - number.length()); ++j)
+                messageNumber = "0" + messageNumber;
+            for (int j = 0; j < MAX_DIGITS; ++j)
+                chars[j] = messageNumber.charAt(j);
+            test(session, new String(chars));
         }
-        catch (IOException x)
-        {
-            session.close(1011, x.getMessage());
-        }
+    }
+
+    private void test(Session session, String message) throws IOException
+    {
+        session.getRemote().sendString(message);
     }
 
     public static class ClientWebSocket implements WebSocketListener
     {
+        private final CountDownLatch latch;
+
+        public ClientWebSocket(CountDownLatch latch)
+        {
+            this.latch = latch;
+        }
+
         @Override
         public void onWebSocketConnect(Session session)
         {
@@ -151,6 +171,7 @@ public class WebSocketClient9SerialThroughputTest
         @Override
         public void onWebSocketText(String message)
         {
+            latch.countDown();
         }
 
         @Override
@@ -171,27 +192,37 @@ public class WebSocketClient9SerialThroughputTest
         }
     }
 
-    private static class ServerWebSocket implements WebSocketListener
+    public static class ServerWebSocket implements WebSocketListener
     {
+        private static final AtomicInteger counter = new AtomicInteger();
         private Session session;
 
         @Override
         public void onWebSocketConnect(Session session)
         {
             this.session = session;
+            counter.set(0);
         }
 
         @Override
         public void onWebSocketText(String message)
         {
-            try
-            {
-                session.getRemote().sendString(message);
-            }
-            catch (IOException x)
-            {
-                session.close(1011, x.getMessage());
-            }
+                try
+                {
+                    int actual = Integer.parseInt(message.substring(0, MAX_DIGITS));
+                    int expected = counter.getAndIncrement();
+                    if (actual != expected)
+                    {
+                        logger.info("MISMATCH: actual {} != expected {}", actual, expected);
+                        throw new IllegalStateException();
+                    }
+
+                    session.getRemote().sendString(message);
+                }
+                catch (IOException x)
+                {
+                    session.close(1011, x.getMessage());
+                }
         }
 
         @Override
