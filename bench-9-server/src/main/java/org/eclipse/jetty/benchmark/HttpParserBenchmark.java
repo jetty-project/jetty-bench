@@ -10,7 +10,7 @@ import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.toolchain.test.BenchmarkHelper;
 import org.eclipse.jetty.util.BufferUtil;
 
-public class Jetty9HttpParserBenchmark
+public class HttpParserBenchmark
 {
     private final String request = 
         "GET /context/hello/info HTTP/1.1\r\n"+
@@ -29,17 +29,14 @@ public class Jetty9HttpParserBenchmark
     
     public static void main(String[] args) throws Exception
     {
-        Jetty9HttpParserBenchmark bm = new Jetty9HttpParserBenchmark();
+        HttpParserBenchmark bm = new HttpParserBenchmark();
         
         bm.test(10);
-        bm.test(100);
-        bm.test(1000);
-        bm.test(10000);
-        bm.test(100000);
         bm.test(1000000);
         bm.test(1000000);
         bm.test(1000000);
         bm.test(1000000);
+        bm.test(10000000);
     }
 
     private void test(int iterations)
@@ -74,41 +71,50 @@ public class Jetty9HttpParserBenchmark
 
     private class MyHandler implements HttpParser.RequestHandler<ByteBuffer>
     {
+
+        @Override
         public boolean parsedHeader(HttpField field)
         {
             fields.add(field);
             return false;
         }
-        
+
+        @Override
         public boolean messageComplete()
         {
             requests++;
             return true;
         }
-        
+
+        @Override
         public boolean headerComplete()
         {
             return false;
         }
-        
+
+        @Override
         public void earlyEOF()
         {
         }
-        
+
+        @Override
         public boolean content(ByteBuffer item)
         {
             return false;
         }
-        
+
+        @Override
         public void badMessage(int status, String reason)
         {                    
         }
-        
+
+        @Override
         public boolean startRequest(HttpMethod method, String methodString, ByteBuffer uri, HttpVersion version)
         {
             return false;
         }
-        
+
+        @Override
         public boolean parsedHostHeader(String host, int port)
         {
             return false;

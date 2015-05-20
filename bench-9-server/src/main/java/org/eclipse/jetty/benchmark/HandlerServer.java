@@ -13,7 +13,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.toolchain.test.BenchmarkHelper;
 
-public class Jetty9HandlerServer
+public class HandlerServer
 {
     public static void main(String[] args) throws Exception
     {

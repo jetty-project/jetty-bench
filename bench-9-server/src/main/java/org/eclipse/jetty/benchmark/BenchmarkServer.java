@@ -1,7 +1,11 @@
 package org.eclipse.jetty.benchmark;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,12 +28,13 @@ import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.toolchain.test.BenchmarkHelper;
 import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
 
-public class Jetty9BenchmarkServer
+public class BenchmarkServer
 {
         
     public static void main(String[] args) throws Exception
     {
         Server server = new Server(8080);
+        // server.addBean(new ScheduledExecutorScheduler());
 
         HandlerCollection handlers = new HandlerCollection();
         ContextHandlerCollection contexts = new ContextHandlerCollection();
@@ -49,8 +54,6 @@ public class Jetty9BenchmarkServer
         context.addServlet(SessionServlet.class,"/session/*");
         context.addServlet(DefaultServlet.class,"/");
         contexts.addHandler(context);
-        
-        server.addBean(new ScheduledExecutorScheduler());
         
         server.start();
         server.join();
@@ -79,6 +82,8 @@ public class Jetty9BenchmarkServer
         }
     }
 
+    static byte[] how_now = "<p>This is some test text. How now brown cow. The rain in spain jumped over the lazy dog</p>".getBytes(ISO_8859_1);
+    
     public static class HelloServlet extends HttpServlet
     {
         @Override

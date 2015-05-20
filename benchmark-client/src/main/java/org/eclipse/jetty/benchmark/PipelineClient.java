@@ -141,37 +141,7 @@ public class PipelineClient
         int done=bm.requestResponse(COUNT);
         bm.stop("Pipeline Requests",done,COUNT);
 
-        COUNT=100;
-        bm.start();
-        done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
-
-        COUNT=10000;
-        bm.start();
-        done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
-
-        COUNT=10000;
-        bm.start();
-        done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
-
-        COUNT=100000;
-        bm.start();
-        done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
-        
-        COUNT=100000;
-        bm.start();
-        done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
-        
-        COUNT=100000;
-        bm.start();
-        done=bm.requestResponse(COUNT);
-        bm.stop("Pipeline Requests",done,COUNT);
-        
-        COUNT=100000;
+        COUNT=1000000;
         bm.start();
         done=bm.requestResponse(COUNT);
         bm.stop("Pipeline Requests",done,COUNT);
